@@ -103,7 +103,9 @@
   color: #ffb700; /* deep/dark yellow */
   font-weight: bold;
 }
-
+#editor-container {
+  margin-bottom: 10px;
+}
   </style>
 </head>
 <body>
@@ -246,11 +248,11 @@
               <label class="form-label">Notes</label>
               <div id="editor-container"></div>
             </div>
-            <div class="col-12 mt-3">
-              <label class="form-label">Due Dates</label>
-              <div id="dueDatesContainer"></div>
-              <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addDueDateField()">Add Due Date</button>
-            </div>
+<div class="col-12 mt-3">
+  <label class="form-label">Due Dates</label>
+  <div id="dueDatesContainer" style="max-height: 200px; overflow-y: auto; padding-right: 5px;"></div>
+  <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addDueDateField()">Add Due Date</button>
+</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -601,7 +603,8 @@ if (dateStr === todayStr) {
     dueItems.forEach(item => {
       const div = document.createElement("div");
       div.className = `initiative ${item.status.toLowerCase().replace(" ", "-")}`;
-      div.innerText = `${item.name}: ${item.dueTitle}`;
+      const shortName = item.name.split(" ").slice(0, 4).join(" ") + (item.name.split(" ").length > 4 ? "…" : "");
+div.innerText = `${shortName}: ${item.dueTitle}`;
       div.setAttribute("data-id", item.id);
       div.setAttribute("data-title", item.dueTitle);
       div.setAttribute("draggable", "true");
