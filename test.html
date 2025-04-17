@@ -1,0 +1,76 @@
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  initiatives.forEach(item => {
+    (item.dueDates || []).forEach(d => {
+      wsData.push({
+        Name: item.name,
+        Owner: item.owner,
+        Status: item.status,
+        Tags: item.tags,
+        Notes: item.notes, // HTML stays as-is
+        DueTitle: d.title,
+        DueDate: d.date,
+        DueStatus: d.status
+      });
+    });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb, ws, "Initiatives");
+  XLSX.writeFile(wb, "Initiatives.xlsx");
+}
+
+
+
+
+
+
+
+
+
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const importedData = XLSX.utils.sheet_to_json(sheet);
+
+    initiatives = [];
+
+    importedData.forEach(row => {
+      let existing = initiatives.find(i => i.name === row.Name && i.owner === row.Owner);
+      if (!existing) {
+        existing = {
+          id: Date.now() + Math.random(),
+          name: row.Name,
+          owner: row.Owner,
+          status: row.Status,
+          tags: row.Tags,
+          notes: row.Notes || "", // HTML string
+          noteHistory: [],
+          dueDates: []
+        };
+        initiatives.push(existing);
+      }
+
+      if (row.DueTitle && row.DueDate) {
+        existing.dueDates.push({
+          title: row.DueTitle,
+          date: row.DueDate,
+          status: row.DueStatus || "Not Started"
+        });
+      }
+    });
+
+    saveToLocal();
+    renderAll();
+  };
+
+  reader.readAsArrayBuffer(file);
+}
