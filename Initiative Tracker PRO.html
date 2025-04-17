@@ -106,6 +106,12 @@
 #editor-container {
   margin-bottom: 10px;
 }
+.calendar-cell .initiative {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
   </style>
 </head>
 <body>
@@ -603,7 +609,8 @@ if (dateStr === todayStr) {
     dueItems.forEach(item => {
       const div = document.createElement("div");
       div.className = `initiative ${item.status.toLowerCase().replace(" ", "-")}`;
-      const shortName = item.name.split(" ").slice(0, 4).join(" ") + (item.name.split(" ").length > 4 ? "…" : "");
+      const nameWords = item.name.trim().split(" ");
+const shortName = nameWords.slice(0, 4).join(" ") + (nameWords.length > 4 ? "…" : "");
 div.innerText = `${shortName}: ${item.dueTitle}`;
       div.setAttribute("data-id", item.id);
       div.setAttribute("data-title", item.dueTitle);
