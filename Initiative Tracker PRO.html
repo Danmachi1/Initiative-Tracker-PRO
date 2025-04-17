@@ -30,7 +30,7 @@
 
     .theme-toggle-btn { font-size: 1.3rem; cursor: pointer; }
 
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dee2e6; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 130px ;gap: 1px; background: #dee2e6; }
     .calendar-day-header { text-align: center; background: #f8f9fa; padding: 0.75rem 0; font-weight: 600; }
 
     .calendar-cell {
@@ -41,6 +41,7 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
+	overflow: hidden;
     }
 
     .calendar-cell .date-number { font-weight: bold; font-size: 0.9rem; color: #333; margin-bottom: 0.25rem; }
@@ -104,7 +105,25 @@
   font-weight: bold;
 }
 #editor-container {
-  margin-bottom: 10px;
+  margin-bottom: 30px;
+}
+.calendar-cell .initiative {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+.calendar-grid {
+	grid-auto-rows: 100px;
+}
+}
+#forecastingSummary {
+  background: #f9f9f9;
+  border-left: 4px solid #0d6efd;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-top: 0.5rem;
 }
   </style>
 </head>
@@ -177,6 +196,13 @@
           <div class="col-md-4"><canvas id="tagsChart"></canvas></div>
         </div>
         <div class="row g-3 mt-4" id="smartStats"></div>
+
+<!-- Progress Forecasting Section -->
+<div class="mt-4">
+  <h6 class="fw-bold">📈 Progress Forecasting</h6>
+  <div id="forecastingSummary" class="small text-muted"></div>
+</div>
+
       </div>
     </div>
     <div class="tab-pane fade" id="tabActive"><div id="activeAccordion" class="accordion"></div></div>
@@ -244,13 +270,14 @@
               <label class="form-label">Tags</label>
               <input type="text" class="form-control" name="tags">
             </div>
-            <div class="col-12">
-              <label class="form-label">Notes</label>
-              <div id="editor-container"></div>
-            </div>
-<div class="col-12 mt-3">
+           <div class="col-12 mb-3">
+  <label class="form-label">Notes</label>
+  <div id="editor-container" class="mb-3"></div>
+</div>
+
+<div class="col-12">
   <label class="form-label">Due Dates</label>
-  <div id="dueDatesContainer" style="max-height: 200px; overflow-y: auto; padding-right: 5px;"></div>
+  <div id="dueDatesContainer" class="d-flex flex-column gap-2"></div>
   <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addDueDateField()">Add Due Date</button>
 </div>
           </div>
@@ -603,8 +630,10 @@ if (dateStr === todayStr) {
     dueItems.forEach(item => {
       const div = document.createElement("div");
       div.className = `initiative ${item.status.toLowerCase().replace(" ", "-")}`;
-      const shortName = item.name.split(" ").slice(0, 4).join(" ") + (item.name.split(" ").length > 4 ? "…" : "");
-div.innerText = `${shortName}: ${item.dueTitle}`;
+      const nameWords = item.name.trim().split(" ");
+const shortName = nameWords.slice(0, 4).join(" ") + (nameWords.length > 4 ? "…" : "");
+const trimmedDueTitle = item.dueTitle.split(" ").slice(0, 4).join(" ") + (item.dueTitle.split(" ").length > 4 ? "…" : "");
+div.innerText = `${shortName}: ${trimmedDueTitle}`;
       div.setAttribute("data-id", item.id);
       div.setAttribute("data-title", item.dueTitle);
       div.setAttribute("draggable", "true");
@@ -684,31 +713,57 @@ function getDateFromCell(cell) {
 }
 
 function openInitiativeModal(id) {
-  const item = initiatives.find(i => i.id === id);
-  if (!item) return;
+const item = initiatives.find(i => i.id === id);
+if (!item) return;
 
-  const modalBody = document.getElementById("calendarModalBody");
+const container = document.getElementById("calendarModalBody");
+const closest = getClosestDueDate(item.dueDates);
 
-  const dueList = item.dueDates.map(d => `
-    <li class="list-group-item d-flex justify-content-between">
-      <span>${d.title} – ${d.date}</span>
-      <span class="badge ${getStatusBadgeClass(d.status)}">${d.status}</span>
-    </li>
-  `).join("");
+container.innerHTML = `
+<div class="mb-3">
+<h5><strong>${item.name}</strong> <small class="text-muted ms-2">(${item.owner || "Unassigned"})</small></h5>
+</div>
+<div class="mb-3">
+<strong>Notes:</strong>
+<div class="p-2 border rounded bg-white initiative-note">${item.notes || "<em>No notes</em>"}</div>
+</div>
+<div class="mb-3">
+<strong>Due Dates:</strong>
+<ul class="list-group mt-2">
+${(item.dueDates || []).map(d => `
+<li class="list-group-item d-flex justify-content-between align-items-center">
+<span><i class="bi bi-calendar-event me-2"></i><strong>${d.title}</strong> – ${d.date}</span>
+<span class="badge ${getStatusBadgeClass(d.status)}">${d.status}</span>
+</li>
+`).join("")}
+</ul>
+</div>
+<div class="mb-3">
+<strong>Progress:</strong>
+<div class="progress mt-1">
+<div class="progress-bar bg-success" style="width: ${getProgress(item)}%;">
+${getProgress(item)}%
+</div>
+</div>
+</div>
+<div class="text-end mt-3">
+<button class="btn btn-sm btn-outline-primary me-2" onclick="openEditModal(${item.id})">
+<i class="bi bi-pencil"></i> Edit
+</button>
+<button class="btn btn-sm btn-outline-info me-2" onclick="cloneInitiative(${item.id})">
+<i class="bi bi-files"></i> Clone
+</button>
+<button class="btn btn-sm btn-outline-dark" onclick="showNoteHistory(${item.id})">
+<i class="bi bi-clock-history"></i> History
+</button>
+</div>
+`;
 
-  modalBody.innerHTML = `
-    <h5>${item.name} <small class="text-muted">(${item.owner || "Unassigned"})</small></h5>
-    <div class="mb-2"><strong>Status:</strong> ${item.status}</div>
-    <div class="mb-3"><strong>Notes:</strong><br>
-      <div class="p-2 border rounded bg-white">${item.notes || "<em>No notes</em>"}</div>
-    </div>
-    <div><strong>Due Dates:</strong>
-      <ul class="list-group mt-2">${dueList}</ul>
-    </div>
-  `;
-
-  new bootstrap.Modal(document.getElementById("calendarModal")).show();
+document.getElementById("calendarModalDate").textContent = new Date().toLocaleDateString();
+new bootstrap.Modal(document.getElementById("calendarModal")).show();
 }
+
+
 
 function renderCalendarView() {
   if (calendarView === 'month') {
@@ -816,6 +871,25 @@ function renderDashboard() {
     }
   }));
 
+// Forecasting: Estimate days remaining
+let totalRemaining = 0;
+let soonDue = 0;
+const today = new Date();
+
+initiatives.forEach(i => {
+  i.dueDates?.forEach(d => {
+    const dueDate = new Date(d.date);
+    if (d.status !== "Completed" && dueDate > today) {
+      const daysLeft = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+      totalRemaining += daysLeft;
+      if (daysLeft <= 7) soonDue++;
+    }
+  });
+});
+
+document.getElementById("forecastingSummary").innerHTML =
+  `<span><strong>${totalRemaining}</strong> total days remaining across active due dates.</span><br>
+   <span><strong>${soonDue}</strong> due within the next 7 days.</span>`;
   document.getElementById("smartStats").innerHTML = `
     <div class="col-md-4"><strong>Total Initiatives:</strong> ${stats.total}</div>
     <div class="col-md-4"><strong>Total Due Dates:</strong> ${stats.dueDates}</div>
@@ -916,68 +990,59 @@ function handleFileImport(event) {
   if (!file) return;
 
   const reader = new FileReader();
+  reader.onload = function (e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const importedData = XLSX.utils.sheet_to_json(sheet);
 
-  if (file.name.endsWith(".json")) {
-    reader.onload = e => {
-      initiatives = JSON.parse(e.target.result);
-      saveToLocal();
-      renderAll();
-    };
-    reader.readAsText(file);
-  } else if (file.name.endsWith(".xlsx")) {
-    reader.onload = e => {
-      const wb = XLSX.read(e.target.result, { type: "binary" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(sheet);
+    initiatives = [];
 
-      const grouped = {};
+    importedData.forEach(row => {
+      let existing = initiatives.find(i => i.name === row.Name && i.owner === row.Owner);
+      if (!existing) {
+        existing = {
+          id: Date.now() + Math.random(),
+          name: row.Name,
+          owner: row.Owner,
+          status: row.Status,
+          tags: row.Tags,
+          notes: row.Notes || "", // HTML string
+          noteHistory: [],
+          dueDates: []
+        };
+        initiatives.push(existing);
+      }
 
-      data.forEach(r => {
-        const key = `${r.Name}-${r.Owner}`;
-        if (!grouped[key]) {
-          grouped[key] = {
-            id: Date.now() + Math.random(),
-            name: r.Name,
-            owner: r.Owner,
-            status: r.Status,
-            tags: r.Tags,
-            notes: r.Notes,
-            noteHistory: [],
-            dueDates: []
-          };
-        }
-
-        grouped[key].dueDates.push({
-          title: r.DueTitle,
-          date: r.DueDate,
-          status: r.DueStatus
+      if (row.DueTitle && row.DueDate) {
+        existing.dueDates.push({
+          title: row.DueTitle,
+          date: row.DueDate,
+          status: row.DueStatus || "Not Started"
         });
-      });
+      }
+    });
 
-      initiatives = Object.values(grouped);
-      saveToLocal();
-      renderAll();
-    };
+    saveToLocal();
+    renderAll();
+  };
 
-    reader.readAsBinaryString(file);
-  }
-
-  // Reset file input so the same file can be re-imported if needed
-  event.target.value = "";
+  reader.readAsArrayBuffer(file);
 }
 </script>
 <script>
 function exportExcel() {
-  const rows = [];
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
 
-  initiatives.forEach(i => {
-    (i.dueDates || []).forEach(d => {
-      rows.push({
-        Name: i.name,
-        Owner: i.owner,
-        Status: i.status,
-        Tags: i.tags,
-        Notes: i.notes?.replace(/<[^>]+>/g, '').trim(),
+  initiatives.forEach(item => {
+    (item.dueDates || []).forEach(d => {
+      wsData.push({
+        Name: item.name,
+        Owner: item.owner,
+        Status: item.status,
+        Tags: item.tags,
+        Notes: item.notes, // HTML stays as-is
         DueTitle: d.title,
         DueDate: d.date,
         DueStatus: d.status
@@ -985,10 +1050,9 @@ function exportExcel() {
     });
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(wsData);
   XLSX.utils.book_append_sheet(wb, ws, "Initiatives");
-  XLSX.writeFile(wb, "initiatives.xlsx");
+  XLSX.writeFile(wb, "Initiatives.xlsx");
 }
 </script>
 <script>
