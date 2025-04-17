@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Initiative Tracker PRO</title>
+
+  <!-- Libraries: Bootstrap, Icons, FullCalendar, Quill -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.7/main.min.css" rel="stylesheet" />
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; }
+
+    .accordion-button.collapsed { background-color: #f8f9fa; }
+    .accordion-button { background-color: #e9ecef; font-weight: 500; font-size: 1.05rem; }
+
+    .initiative-note { font-size: 1rem; line-height: 1.5; white-space: normal; }
+
+    canvas { max-height: 280px !important; }
+    .list-group-item { font-size: 0.95rem; }
+
+    .sticky-header { position: sticky; top: 0; background: var(--bs-body-bg); z-index: 5; padding: 0.75rem 0; }
+    .modal-dialog-scrollable .modal-body { max-height: 500px; overflow-y: auto; }
+
+    #calendarModal .modal-body { font-size: 0.95rem; line-height: 1.5; }
+    #filterBar { display: none; }
+
+    .theme-toggle-btn { font-size: 1.3rem; cursor: pointer; }
+
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #dee2e6; }
+    .calendar-day-header { text-align: center; background: #f8f9fa; padding: 0.75rem 0; font-weight: 600; }
+
+    .calendar-cell {
+      background: var(--bs-body-bg);
+      min-height: 120px;
+      padding: 0.5rem;
+      border: 1px solid #dee2e6;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .calendar-cell .date-number { font-weight: bold; font-size: 0.9rem; color: #333; margin-bottom: 0.25rem; }
+
+    .calendar-cell .initiative {
+      font-size: 0.8rem;
+      background: #e7f1ff;
+      padding: 2px 6px;
+      margin-bottom: 2px;
+      border-left: 3px solid #0d6efd;
+      border-radius: 3px;
+      cursor: grab;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .calendar-cell .initiative.completed { background: #e6f4ea; border-left-color: #198754; }
+    .calendar-cell .initiative.in-progress { background: #fff3cd; border-left-color: #ffc107; }
+    .calendar-cell.drag-target { outline: 2px dashed #0d6efd; background-color: #e7f1ff; }
+
+    .year-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+    .month-tile {
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--bs-light);
+      transition: background 0.2s;
+    }
+
+    .month-tile:hover { background-color: var(--bs-secondary-bg); }
+
+    #editor-container {
+      background: white;
+      border: 1px solid #ced4da;
+      border-radius: 0.375rem;
+      min-height: 150px;
+    }
+
+    .history-entry {
+      background-color: #f8f9fa;
+      border-left: 4px solid #0d6efd;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 5px;
+    }
+.calendar-cell.today {
+  background-color: #fff3cd !important;
+  border: 2px solid #ffc107;
+}
+.calendar-cell.today .date-number {
+  font-weight: bold;
+  color: #000;
+}
+
+.calendar-cell.today .date-number {
+  color: #ffb700; /* deep/dark yellow */
+  font-weight: bold;
+}
+
+  </style>
+</head>
+<body>
+<div class="container mt-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold">📋 Initiative Tracker PRO</h2>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-dark btn-sm" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+        <i class="bi bi-circle-half theme-toggle-btn"></i>
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        <i class="bi bi-plus-circle me-1"></i> Add Initiative
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="sticky-header">
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="toggleFilterBar()">
+      <i class="bi bi-filter"></i> Filters
+    </button>
+    <div id="filterBar" class="row g-2 align-items-center">
+      <div class="col-md-auto">
+        <input type="text" id="searchBox" class="form-control form-control-sm" placeholder="Search..." oninput="applyFilters()">
+      </div>
+      <div class="col-md-auto filter-panel">
+        <select class="form-select form-select-sm" id="filterStatus" onchange="applyFilters()">
+          <option value="">All Statuses</option>
+        </select>
+      </div>
+      <div class="col-md-auto filter-panel">
+        <select class="form-select form-select-sm" id="filterOwner" onchange="applyFilters()">
+          <option value="">All Owners</option>
+        </select>
+      </div>
+      <div class="col-md-auto filter-panel">
+        <select class="form-select form-select-sm" id="filterTag" onchange="applyFilters()">
+          <option value="">All Tags</option>
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <div class="btn-group">
+          <button class="btn btn-outline-primary btn-sm" onclick="exportJSON()">📤 JSON</button>
+          <button class="btn btn-outline-success btn-sm" onclick="exportExcel()">📤 Excel</button>
+          <input type="file" accept=".json,.xlsx" id="importFile" class="d-none" onchange="handleFileImport(event)">
+          <button class="btn btn-outline-warning btn-sm" onclick="document.getElementById('importFile').click()">📥 Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabDashboard">Dashboard</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabActive">Active</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCompleted">Completed</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCalendar">Calendar</button></li>
+  </ul>
+
+  <!-- Tab Contents -->
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="tabDashboard">
+      <div class="p-3">
+        <h5 class="fw-bold">📊 Smart Dashboard</h5>
+        <div class="row g-4 mt-2">
+          <div class="col-md-4"><canvas id="statusChart"></canvas></div>
+          <div class="col-md-4"><canvas id="completionChart"></canvas></div>
+          <div class="col-md-4"><canvas id="tagsChart"></canvas></div>
+        </div>
+        <div class="row g-3 mt-4" id="smartStats"></div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="tabActive"><div id="activeAccordion" class="accordion"></div></div>
+    <div class="tab-pane fade" id="tabCompleted"><div id="completedAccordion" class="accordion"></div></div>
+    <div class="tab-pane fade" id="tabCalendar">
+      <div class="calendar-view-toggle d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 mb-2">
+        <div>
+          <button class="btn btn-outline-secondary btn-sm" onclick="prevMonth()">⏮ Prev</button>
+          <button class="btn btn-outline-primary btn-sm" onclick="goToday()">Today</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="nextMonth()">Next ⏭</button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <select class="form-select form-select-sm" style="width:auto" onchange="setYear(this.value)" id="yearSelect"></select>
+          <button class="btn btn-outline-dark btn-sm" onclick="toggleView('month')">📆 Month</button>
+          <button class="btn btn-outline-dark btn-sm" onclick="toggleView('year')">🗓 Year</button>
+        </div>
+      </div>
+      <div class="calendar-container px-3 pb-3">
+        <h4 id="calendarTitle" class="mb-3"></h4>
+        <div class="calendar-grid" id="calendarHeaders">
+          <div class="calendar-day-header">Sun</div>
+          <div class="calendar-day-header">Mon</div>
+          <div class="calendar-day-header">Tue</div>
+          <div class="calendar-day-header">Wed</div>
+          <div class="calendar-day-header">Thu</div>
+          <div class="calendar-day-header">Fri</div>
+          <div class="calendar-day-header">Sat</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div id="yearGridContainer" style="display:none;" class="px-1 pb-4"><div class="year-grid" id="yearGrid"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Proceed to Part 2 for modal, editor, history modal, and main JS -->
+<!-- 🧩 Add/Edit Initiative Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="editForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">Edit Initiative</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Owner</label>
+              <input type="text" class="form-control" name="owner">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select class="form-select" name="status">
+                <option>Not Started</option>
+                <option>In Progress</option>
+                <option>Completed</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tags</label>
+              <input type="text" class="form-control" name="tags">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <div id="editor-container"></div>
+            </div>
+            <div class="col-12 mt-3">
+              <label class="form-label">Due Dates</label>
+              <div id="dueDatesContainer"></div>
+              <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addDueDateField()">Add Due Date</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Save</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 🕘 Note History Modal -->
+<div class="modal fade" id="noteHistoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">🕘 Note History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="noteHistoryContainer">
+        <!-- Entries are injected here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 📅 Calendar Modal -->
+<div class="modal fade" id="calendarModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Initiatives Due on <span id="calendarModalDate"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="calendarModalBody"></div>
+    </div>
+  </div>
+</div>
+<!-- Quill Editor -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+function renderInitiatives() {
+  const activeList = document.getElementById("activeAccordion");
+  const completedList = document.getElementById("completedAccordion");
+  activeList.innerHTML = "";
+  completedList.innerHTML = "";
+
+  initiatives.forEach(item => {
+    const container = item.status === "Completed" ? completedList : activeList;
+    const card = document.createElement("div");
+    card.className = "accordion-item shadow-sm mb-2";
+    card.dataset.status = item.status;
+    card.dataset.owner = item.owner || "";
+    card.dataset.tags = (item.tags || "").toLowerCase();
+
+    const closest = getClosestDueDate(item.dueDates);
+
+    card.innerHTML = `
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${item.id}">
+          <div class="w-100 d-flex justify-content-between align-items-center">
+            <div>
+              <span class="fw-bold">${item.name}</span>
+              <small class="text-muted ms-2">(${item.owner || "Unassigned"})</small>
+            </div>
+            <div>
+              ${closest ? `<span class="me-3"><i class="bi bi-calendar-event me-1"></i><strong>${closest.title}</strong> – ${closest.date}</span>` : ""}
+              <span class="badge ${getStatusBadgeClass(item.status)}">${item.status}</span>
+            </div>
+          </div>
+        </button>
+      </h2>
+      <div id="collapse${item.id}" class="accordion-collapse collapse">
+        <div class="accordion-body">
+          <h5 class="mb-2">${item.name}</h5>
+          <div class="mb-3">
+            <strong>Notes:</strong>
+            <div class="p-2 border rounded bg-white initiative-note">${item.notes || "<em>No notes</em>"}</div>
+          </div>
+          <div class="mb-3">
+            <strong>Due Dates:</strong>
+            <ul class="list-group mt-2">
+              ${(item.dueDates || []).map(d => `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <span><i class="bi bi-calendar-event me-2"></i><strong>${d.title}</strong> – ${d.date}</span>
+                  <span class="badge ${getStatusBadgeClass(d.status)}">${d.status}</span>
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+          <div>
+            <strong>Progress:</strong>
+            <div class="progress mt-1">
+              <div class="progress-bar bg-success" style="width: ${getProgress(item)}%;">${getProgress(item)}%</div>
+            </div>
+          </div>
+          <div class="text-end mt-3">
+            <button class="btn btn-sm btn-outline-primary me-2" onclick="openEditModal(${item.id})"><i class="bi bi-pencil"></i> Edit</button>
+            <button class="btn btn-sm btn-outline-info me-2" onclick="cloneInitiative(${item.id})"><i class="bi bi-files"></i> Clone</button>
+            <button class="btn btn-sm btn-outline-dark" onclick="showNoteHistory(${item.id})"><i class="bi bi-clock-history"></i> History</button>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+function getClosestDueDate(dates = []) {
+  const now = new Date();
+  return dates
+    .filter(d => d.date)
+    .map(d => ({ ...d, dateObj: new Date(d.date) }))
+    .filter(d => d.dateObj >= now)
+    .sort((a, b) => a.dateObj - b.dateObj)[0] || null;
+}
+
+function getStatusBadgeClass(status) {
+  return status === "Completed" ? "badge bg-success"
+       : status === "In Progress" ? "badge bg-primary"
+       : "badge bg-secondary";
+}
+
+
+function getProgress(item) {
+  const total = item.dueDates?.length || 0;
+  const done = item.dueDates?.filter(d => d.status === "Completed").length || 0;
+  return total ? Math.round((done / total) * 100) : 0;
+}
+
+
+let initiatives = [];
+let quill;
+let currentEditId = null;
+
+// Quill + Theme on Load
+window.addEventListener("load", () => {
+  quill = new Quill("#editor-container", {
+    theme: "snow",
+    placeholder: "Write rich notes here...",
+    modules: {
+      toolbar: [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['clean']]
+    }
+  });
+
+  const storedTheme = localStorage.getItem("theme");
+  if (storedTheme) document.documentElement.setAttribute("data-bs-theme", storedTheme);
+
+  const stored = localStorage.getItem("initiatives");
+  if (stored) initiatives = JSON.parse(stored);
+
+  renderYearDropdown();
+  renderAll();
+});
+
+// Add Due Date Field
+function addDueDateField(title = "", date = "", status = "Not Started") {
+  const row = document.createElement("div");
+  row.className = "d-flex align-items-center gap-2 mb-2";
+  row.innerHTML = `
+    <input type="text" class="form-control form-control-sm" placeholder="Title" value="${title}">
+    <input type="date" class="form-control form-control-sm" value="${date}">
+    <select class="form-select form-select-sm">
+      <option${status === "Not Started" ? " selected" : ""}>Not Started</option>
+      <option${status === "In Progress" ? " selected" : ""}>In Progress</option>
+      <option${status === "Completed" ? " selected" : ""}>Completed</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">×</button>
+  `;
+  document.getElementById("dueDatesContainer").appendChild(row);
+}
+
+// Open Add Modal
+function openAddModal() {
+  currentEditId = null;
+  document.getElementById("modalTitle").textContent = "Add Initiative";
+  document.getElementById("editForm").reset();
+  quill.setContents([]);
+  document.getElementById("dueDatesContainer").innerHTML = "";
+  addDueDateField();
+  new bootstrap.Modal(document.getElementById("editModal")).show();
+}
+
+// Open Edit Modal
+function openEditModal(id) {
+  const item = initiatives.find(i => i.id === id);
+  if (!item) return;
+
+  currentEditId = id;
+  const form = document.getElementById("editForm");
+  document.getElementById("modalTitle").textContent = "Edit Initiative";
+
+  form.name.value = item.name;
+  form.owner.value = item.owner;
+  form.status.value = item.status;
+  form.tags.value = item.tags;
+  quill.root.innerHTML = item.notes || "";
+
+  const container = document.getElementById("dueDatesContainer");
+  container.innerHTML = "";
+  (item.dueDates || []).forEach(d => addDueDateField(d.title, d.date, d.status));
+
+  new bootstrap.Modal(document.getElementById("editModal")).show();
+}
+
+// Show Note History Modal
+function showNoteHistory(id) {
+  const item = initiatives.find(i => i.id === id);
+  if (!item?.noteHistory?.length) return;
+
+  const container = document.getElementById("noteHistoryContainer");
+  container.innerHTML = item.noteHistory.map(entry => `
+    <div class="history-entry">
+      <div class="small text-muted">🕘 ${new Date(entry.timestamp).toLocaleString()}</div>
+      <div class="p-2 border rounded bg-white mt-1">${entry.content}</div>
+    </div>
+  `).join("");
+
+  new bootstrap.Modal(document.getElementById("noteHistoryModal")).show();
+}
+
+// Handle Save
+document.getElementById("editForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const form = e.target;
+  const noteHTML = quill.root.innerHTML;
+  const id = currentEditId || Date.now();
+
+  let item = {
+    id: id,
+    name: form.name.value,
+    owner: form.owner.value,
+    status: form.status.value,
+    tags: form.tags.value,
+    notes: noteHTML,
+    noteHistory: [],
+    dueDates: []
+  };
+
+  document.querySelectorAll("#dueDatesContainer > div").forEach(div => {
+    const inputs = div.querySelectorAll("input, select");
+    if (inputs[0].value && inputs[1].value) {
+      item.dueDates.push({
+        title: inputs[0].value,
+        date: inputs[1].value,
+        status: inputs[2].value
+      });
+    }
+  });
+
+  const index = initiatives.findIndex(i => i.id === id);
+  if (index !== -1) {
+    const existing = initiatives[index];
+    item.noteHistory = existing.noteHistory || [];
+
+    if (existing.notes !== noteHTML) {
+      item.noteHistory.unshift({
+        timestamp: Date.now(),
+        content: existing.notes
+      });
+    }
+
+    initiatives[index] = item;
+  } else {
+    initiatives.push(item);
+  }
+
+  saveToLocal();
+  renderAll();
+  bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
+})
+
+// Clone Initiative
+function cloneInitiative(id) {
+  const original = initiatives.find(i => i.id === id);
+  if (!original) return;
+  const copy = {
+    ...structuredClone(original),
+    id: Date.now(),
+    name: original.name + " (Copy)"
+  };
+  initiatives.push(copy);
+  saveToLocal();
+  renderAll();
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+let currentDate = new Date();
+let calendarView = "month";
+let dragData = null;
+let calendarSearchQuery = "";
+let calendarTagFilter = "";
+
+// 📅 Calendar View Rendering
+function renderCalendarGrid() {
+  const grid = document.getElementById("calendarGrid");
+  const title = document.getElementById("calendarTitle");
+  grid.innerHTML = "";
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  title.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
+
+  // Tail from previous month
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell text-muted";
+    cell.innerHTML = `<div class="date-number">${prevMonthDays - i}</div>`;
+    grid.appendChild(cell);
+  }
+
+  // Main grid
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cell = document.createElement("div");
+const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const today = new Date();
+const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+cell.className = "calendar-cell";
+if (dateStr === todayStr) {
+  cell.classList.add("today");
+}
+
+    cell.innerHTML = `<div class="date-number">${day}</div>`;
+
+    const dueItems = [];
+    initiatives.forEach(i => {
+      if (calendarSearchQuery &&
+          !(i.name?.toLowerCase().includes(calendarSearchQuery) ||
+            i.owner?.toLowerCase().includes(calendarSearchQuery) ||
+            i.notes?.toLowerCase().includes(calendarSearchQuery))) return;
+      if (calendarTagFilter && !i.tags?.toLowerCase().includes(calendarTagFilter.toLowerCase())) return;
+
+      i.dueDates?.forEach(d => {
+        if (d.date === dateStr) {
+          dueItems.push({ id: i.id, name: i.name, status: d.status, dueTitle: d.title });
+        }
+      });
+    });
+
+    dueItems.forEach(item => {
+      const div = document.createElement("div");
+      div.className = `initiative ${item.status.toLowerCase().replace(" ", "-")}`;
+      div.innerText = `${item.name}: ${item.dueTitle}`;
+      div.setAttribute("data-id", item.id);
+      div.setAttribute("data-title", item.dueTitle);
+      div.setAttribute("draggable", "true");
+
+      div.ondragstart = e => { dragData = div; e.dataTransfer.effectAllowed = "move"; };
+      div.onclick = () => openInitiativeModal(item.id);
+
+      cell.appendChild(div);
+    });
+
+    // Drag target
+    cell.ondragover = e => { e.preventDefault(); cell.classList.add("drag-target"); };
+    cell.ondragleave = () => cell.classList.remove("drag-target");
+    cell.ondrop = e => {
+      e.preventDefault();
+      cell.classList.remove("drag-target");
+      if (!dragData) return;
+
+      const targetDate = getDateFromCell(cell);
+      const idText = dragData.getAttribute("data-id");
+      const labelText = dragData.getAttribute("data-title");
+
+      const target = initiatives.find(i => i.id == idText);
+      if (!target) return;
+      const due = target.dueDates.find(d => d.title === labelText);
+      if (!due) return;
+
+      due.date = targetDate;
+      saveToLocal();
+      renderAll();
+      dragData = null;
+    };
+
+    grid.appendChild(cell);
+  }
+
+  // Fill up to 42 cells
+  const totalCells = grid.children.length;
+  for (let i = 1; i <= 42 - totalCells; i++) {
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell text-muted";
+    cell.innerHTML = `<div class="date-number">${i}</div>`;
+    grid.appendChild(cell);
+  }
+}
+
+function renderYearView() {
+  const year = currentDate.getFullYear();
+  const container = document.getElementById("yearGrid");
+  const title = document.getElementById("calendarTitle");
+  container.innerHTML = "";
+  title.innerHTML = `<strong>${year}</strong>`;
+
+  const monthNames = [...Array(12)].map((_, i) =>
+    new Date(0, i).toLocaleString('default', { month: 'long' })
+  );
+
+  monthNames.forEach((name, i) => {
+    const div = document.createElement("div");
+    div.className = "month-tile";
+    div.innerHTML = `<strong>${name}</strong>`;
+    div.onclick = () => {
+      currentDate.setMonth(i);
+      calendarView = 'month';
+      renderCalendarView();
+    };
+    container.appendChild(div);
+  });
+}
+
+function getDateFromCell(cell) {
+  const day = cell.querySelector(".date-number")?.innerText;
+  if (!day) return null;
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function openInitiativeModal(id) {
+  const item = initiatives.find(i => i.id === id);
+  if (!item) return;
+
+  const modalBody = document.getElementById("calendarModalBody");
+
+  const dueList = item.dueDates.map(d => `
+    <li class="list-group-item d-flex justify-content-between">
+      <span>${d.title} – ${d.date}</span>
+      <span class="badge ${getStatusBadgeClass(d.status)}">${d.status}</span>
+    </li>
+  `).join("");
+
+  modalBody.innerHTML = `
+    <h5>${item.name} <small class="text-muted">(${item.owner || "Unassigned"})</small></h5>
+    <div class="mb-2"><strong>Status:</strong> ${item.status}</div>
+    <div class="mb-3"><strong>Notes:</strong><br>
+      <div class="p-2 border rounded bg-white">${item.notes || "<em>No notes</em>"}</div>
+    </div>
+    <div><strong>Due Dates:</strong>
+      <ul class="list-group mt-2">${dueList}</ul>
+    </div>
+  `;
+
+  new bootstrap.Modal(document.getElementById("calendarModal")).show();
+}
+
+function renderCalendarView() {
+  if (calendarView === 'month') {
+    document.getElementById("calendarGrid").style.display = "grid";
+    document.getElementById("calendarHeaders").style.display = "grid";
+    document.getElementById("yearGridContainer").style.display = "none";
+    renderCalendarGrid();
+  } else {
+    document.getElementById("calendarGrid").style.display = "none";
+    document.getElementById("calendarHeaders").style.display = "none";
+    document.getElementById("yearGridContainer").style.display = "block";
+    renderYearView();
+  }
+}
+
+function toggleView(view) {
+  calendarView = view;
+  renderCalendarView();
+}
+
+function prevMonth() { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendarView(); }
+function nextMonth() { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendarView(); }
+function goToday() { currentDate = new Date(); renderCalendarView(); }
+function setYear(val) { currentDate.setFullYear(parseInt(val)); renderCalendarView(); }
+
+function renderYearDropdown() {
+  const select = document.getElementById("yearSelect");
+  const current = new Date().getFullYear();
+  for (let i = current - 10; i <= current + 10; i++) {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = i;
+    if (i === currentDate.getFullYear()) option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+// 📊 Dashboard Charts
+let charts = [];
+function renderDashboard() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+
+  const stats = {
+    total: initiatives.length,
+    statusCounts: { "Not Started": 0, "In Progress": 0, "Completed": 0 },
+    owners: new Set(),
+    tags: {},
+    dueDates: 0,
+    completedDueDates: 0,
+  };
+
+  initiatives.forEach(i => {
+    stats.statusCounts[i.status] = (stats.statusCounts[i.status] || 0) + 1;
+    if (i.owner) stats.owners.add(i.owner);
+    (i.tags || "").split(",").map(t => t.trim()).forEach(t => {
+      if (t) stats.tags[t] = (stats.tags[t] || 0) + 1;
+    });
+    i.dueDates?.forEach(d => {
+      stats.dueDates++;
+      if (d.status === "Completed") stats.completedDueDates++;
+    });
+  });
+
+  const percent = stats.dueDates ? Math.round((stats.completedDueDates / stats.dueDates) * 100) : 0;
+  const topTag = Object.entries(stats.tags).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+
+  charts.push(new Chart(document.getElementById("statusChart"), {
+    type: 'pie',
+    data: {
+      labels: ["Not Started", "In Progress", "Completed"],
+      datasets: [{
+        data: [stats.statusCounts["Not Started"], stats.statusCounts["In Progress"], stats.statusCounts["Completed"]],
+        backgroundColor: ["#6c757d", "#0d6efd", "#198754"]
+      }]
+    },
+    options: { plugins: { title: { display: true, text: "Initiative Status" } } }
+  }));
+
+  charts.push(new Chart(document.getElementById("completionChart"), {
+    type: 'doughnut',
+    data: {
+      labels: ["Completed", "Remaining"],
+      datasets: [{
+        data: [stats.completedDueDates, stats.dueDates - stats.completedDueDates],
+        backgroundColor: ["#198754", "#dee2e6"]
+      }]
+    },
+    options: { plugins: { title: { display: true, text: "Completion Rate" } } }
+  }));
+
+  charts.push(new Chart(document.getElementById("tagsChart"), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(stats.tags),
+      datasets: [{
+        label: "Tag Count",
+        data: Object.values(stats.tags),
+        backgroundColor: "#0d6efd"
+      }]
+    },
+    options: {
+      plugins: { title: { display: true, text: "Top Tags" } },
+      scales: { x: { ticks: { autoSkip: false } } }
+    }
+  }));
+
+  document.getElementById("smartStats").innerHTML = `
+    <div class="col-md-4"><strong>Total Initiatives:</strong> ${stats.total}</div>
+    <div class="col-md-4"><strong>Total Due Dates:</strong> ${stats.dueDates}</div>
+    <div class="col-md-4"><strong>Completed Due Dates:</strong> ${stats.completedDueDates}</div>
+    <div class="col-md-4"><strong>Completion Rate:</strong> ${percent}%</div>
+    <div class="col-md-4"><strong>Unique Owners:</strong> ${stats.owners.size}</div>
+    <div class="col-md-4"><strong>Most Frequent Tag:</strong> ${topTag}</div>
+  `;
+}
+
+// 🔁 Refresh everything
+function renderAll() {
+  renderInitiatives();
+  renderDashboard();
+  renderCalendarView();
+  populateFilterDropdowns();
+  populateCalendarTagFilter();
+  applyFilters();
+  applyCalendarFilters();
+}
+
+// Filter Systems
+function applyFilters() {
+  const search = document.getElementById("searchBox").value.toLowerCase();
+  const status = document.getElementById("filterStatus").value;
+  const owner = document.getElementById("filterOwner").value;
+  const tag = document.getElementById("filterTag").value;
+
+  document.querySelectorAll(".accordion .accordion-item").forEach(card => {
+    const matchesSearch = card.textContent.toLowerCase().includes(search);
+    const matchesStatus = !status || card.dataset.status === status;
+    const matchesOwner = !owner || card.dataset.owner === owner;
+    const matchesTag = !tag || card.dataset.tags.includes(tag.toLowerCase());
+    card.style.display = (matchesSearch && matchesStatus && matchesOwner && matchesTag) ? "" : "none";
+  });
+}
+
+function populateFilterDropdowns() {
+  const statuses = new Set(), owners = new Set(), tags = new Set();
+  initiatives.forEach(i => {
+    statuses.add(i.status);
+    if (i.owner) owners.add(i.owner);
+    (i.tags || "").split(",").map(t => t.trim()).forEach(t => { if (t) tags.add(t); });
+  });
+
+  const fill = (id, values) => {
+    const el = document.getElementById(id);
+    const selected = el.value;
+    el.innerHTML = `<option value="">All ${id.replace("filter", "")}s</option>` +
+      Array.from(values).sort().map(v => `<option ${v === selected ? "selected" : ""}>${v}</option>`).join("");
+  };
+
+  fill("filterStatus", statuses);
+  fill("filterOwner", owners);
+  fill("filterTag", tags);
+}
+
+function populateCalendarTagFilter() {
+  const tagSet = new Set();
+  initiatives.forEach(i => {
+    (i.tags || "").split(",").map(t => t.trim()).forEach(tag => {
+      if (tag) tagSet.add(tag);
+    });
+  });
+
+  const dropdown = document.getElementById("calendarTagFilter");
+  if (!dropdown) return;
+  dropdown.innerHTML = '<option value="">All Tags</option>' +
+    [...tagSet].sort().map(tag => `<option value="${tag}">${tag}</option>`).join("");
+}
+
+function applyCalendarFilters() {
+  calendarSearchQuery = document.getElementById("calendarSearch")?.value?.toLowerCase().trim() || "";
+  calendarTagFilter = document.getElementById("calendarTagFilter")?.value || "";
+  renderCalendarView();
+}
+
+function toggleFilterBar() {
+  const bar = document.getElementById("filterBar");
+  bar.style.display = bar.style.display === "none" || bar.style.display === "" ? "flex" : "none";
+}
+
+function saveToLocal() {
+  localStorage.setItem("initiatives", JSON.stringify(initiatives));
+}
+
+function toggleDarkMode() {
+  const html = document.documentElement;
+  const current = html.getAttribute("data-bs-theme");
+  const next = current === "dark" ? "light" : "dark";
+  html.setAttribute("data-bs-theme", next);
+  localStorage.setItem("theme", next);
+}
+</script>
+<script>
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  if (file.name.endsWith(".json")) {
+    reader.onload = e => {
+      initiatives = JSON.parse(e.target.result);
+      saveToLocal();
+      renderAll();
+    };
+    reader.readAsText(file);
+  } else if (file.name.endsWith(".xlsx")) {
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: "binary" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(sheet);
+
+      const grouped = {};
+
+      data.forEach(r => {
+        const key = `${r.Name}-${r.Owner}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            id: Date.now() + Math.random(),
+            name: r.Name,
+            owner: r.Owner,
+            status: r.Status,
+            tags: r.Tags,
+            notes: r.Notes,
+            noteHistory: [],
+            dueDates: []
+          };
+        }
+
+        grouped[key].dueDates.push({
+          title: r.DueTitle,
+          date: r.DueDate,
+          status: r.DueStatus
+        });
+      });
+
+      initiatives = Object.values(grouped);
+      saveToLocal();
+      renderAll();
+    };
+
+    reader.readAsBinaryString(file);
+  }
+
+  // Reset file input so the same file can be re-imported if needed
+  event.target.value = "";
+}
+</script>
+<script>
+function exportExcel() {
+  const rows = [];
+
+  initiatives.forEach(i => {
+    (i.dueDates || []).forEach(d => {
+      rows.push({
+        Name: i.name,
+        Owner: i.owner,
+        Status: i.status,
+        Tags: i.tags,
+        Notes: i.notes?.replace(/<[^>]+>/g, '').trim(),
+        DueTitle: d.title,
+        DueDate: d.date,
+        DueStatus: d.status
+      });
+    });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Initiatives");
+  XLSX.writeFile(wb, "initiatives.xlsx");
+}
+</script>
+<script>
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(initiatives, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "initiatives.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+<!-- External Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+</html>
