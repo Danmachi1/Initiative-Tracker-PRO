@@ -1,76 +1,77 @@
-function exportExcel() {
-  const wb = XLSX.utils.book_new();
-  const wsData = [];
+Thanks for confirming! Since I don’t have direct file access to your GitHub code, here are the exact code changes you need to make in your own HTML file for Progress Forecasting under the dashboard charts:
 
-  initiatives.forEach(item => {
-    (item.dueDates || []).forEach(d => {
-      wsData.push({
-        Name: item.name,
-        Owner: item.owner,
-        Status: item.status,
-        Tags: item.tags,
-        Notes: item.notes, // HTML stays as-is
-        DueTitle: d.title,
-        DueDate: d.date,
-        DueStatus: d.status
-      });
-    });
+⸻
+
+1. Add this new section below the 3 charts
+
+Search for this line:
+
+<div class="row g-3 mt-4" id="smartStats"></div>
+
+Replace it with:
+
+<div class="row g-3 mt-4" id="smartStats"></div>
+
+<!-- Progress Forecasting Section -->
+<div class="mt-4">
+  <h6 class="fw-bold">📈 Progress Forecasting</h6>
+  <div id="forecastingSummary" class="small text-muted"></div>
+</div>
+
+
+
+⸻
+
+2. Update the renderDashboard() function
+
+Search for function renderDashboard() and go to its end.
+
+Right before this line:
+
+document.getElementById("smartStats").innerHTML = `
+
+Add this logic:
+
+// Forecasting: Estimate days remaining
+let totalRemaining = 0;
+let soonDue = 0;
+const today = new Date();
+
+initiatives.forEach(i => {
+  i.dueDates?.forEach(d => {
+    const dueDate = new Date(d.date);
+    if (d.status !== "Completed" && dueDate > today) {
+      const daysLeft = Math.round((dueDate - today) / (1000 * 60 * 60 * 24));
+      totalRemaining += daysLeft;
+      if (daysLeft <= 7) soonDue++;
+    }
   });
+});
 
-  const ws = XLSX.utils.json_to_sheet(wsData);
-  XLSX.utils.book_append_sheet(wb, ws, "Initiatives");
-  XLSX.writeFile(wb, "Initiatives.xlsx");
+document.getElementById("forecastingSummary").innerHTML =
+  `<span><strong>${totalRemaining}</strong> total days remaining across active due dates.</span><br>
+   <span><strong>${soonDue}</strong> due within the next 7 days.</span>`;
+
+
+
+⸻
+
+3. (Optional) Enhance it visually with a bit of CSS
+
+Add to your <style> section (search <style> near top):
+
+#forecastingSummary {
+  background: #f9f9f9;
+  border-left: 4px solid #0d6efd;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-top: 0.5rem;
 }
 
 
 
+⸻
 
+That’s it! Once you apply these changes, your Dashboard will show an estimated total time to finish, and a warning count for anything due soon, right under the charts.
 
-
-
-
-
-function handleFileImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const data = new Uint8Array(e.target.result);
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const importedData = XLSX.utils.sheet_to_json(sheet);
-
-    initiatives = [];
-
-    importedData.forEach(row => {
-      let existing = initiatives.find(i => i.name === row.Name && i.owner === row.Owner);
-      if (!existing) {
-        existing = {
-          id: Date.now() + Math.random(),
-          name: row.Name,
-          owner: row.Owner,
-          status: row.Status,
-          tags: row.Tags,
-          notes: row.Notes || "", // HTML string
-          noteHistory: [],
-          dueDates: []
-        };
-        initiatives.push(existing);
-      }
-
-      if (row.DueTitle && row.DueDate) {
-        existing.dueDates.push({
-          title: row.DueTitle,
-          date: row.DueDate,
-          status: row.DueStatus || "Not Started"
-        });
-      }
-    });
-
-    saveToLocal();
-    renderAll();
-  };
-
-  reader.readAsArrayBuffer(file);
-}
+Let me know if you want to expand it with colored bars, forecasts per initiative, or predictive graphs next.
