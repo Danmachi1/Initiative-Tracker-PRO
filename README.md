@@ -36,5 +36,3 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 
 License
 This project is licensed under the MIT License. See the LICENSE file for details.​
-
-Note: The above README is based on limited information available from the repository. For a more detailed guide, additional information about the project's functionality and usage would be beneficial.
